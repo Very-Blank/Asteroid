@@ -17,6 +17,8 @@
 
 //our header files
 #include <entity.hpp>
+#include "rigidbody.hpp"
+#include "player.hpp"
 
 bool Colliding(glm::vec3 first_position, glm::vec3 second_position, float vertices[]);
 glm::vec3 move_vector(GLFWwindow *window);
@@ -206,65 +208,45 @@ int main(int argc, char const *argv[])
 	else {
 		std::cout << "Failed to load the image" << std::endl;
 	}
-
-	glm::vec3 player_position(0.0f);
-	glm::vec3 player_velocity(0.0f);
-	player_position.z = 1.0f;
-	glm::vec3 scale(0.1f);
-	glm::quat player_rotation(glm::vec3(0.0f, 0.0f, 0.0f));
-	glm::mat4 player_model(1.0f);
-	player_model = glm::scale(player_model, scale);
-	player_model *= glm::toMat4(player_rotation);
-	player_model = glm::translate(player_model, player_position);
+	char player_path[] = "../../textures/ship.png";
+	engine::Player player(1, player_path);
 
 	glm::mat4 view(1.0f);
-	view = glm::translate(view, -player_position);
+	view = glm::translate(view, -player.position);
 	glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.01f, 1000.0f);
+
 	char asteroid_path[] = "../../textures/asteroid.png";
-	engine::Entity asteroid(1, asteroid_path);
+	engine::Rigidbody asteroid(1, asteroid_path);
+	asteroid.mass = 1.0f;
 	glEnable(GL_BLEND);
 
+	float delta_time = 0.0f;
+	float last_frame = 0.0f;
 	while (!glfwWindowShouldClose(window)) {
+		float current_frame;
+		delta_time = current_frame - last_frame;
+		last_frame = current_frame;
+
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		process_input(window);
 
-		player_rotation = player_look_rotation(window);
-		player_velocity += move_vector(window) * 0.005f;
-		if(glm::length(player_velocity) > 0.07f){
-			player_velocity = glm::normalize(player_velocity) * 0.07f;
-		}
-
-		player_position += player_velocity;
-		player_model = glm::mat4(1.0f);
-		player_model = glm::scale(player_model, scale);
-		player_model = glm::translate(player_model, player_position);
-		player_model *= glm::toMat4(player_rotation);
-
 		view = glm::mat4(1.0f);
-		glm::vec3 cam_pos = player_position;
-		cam_pos.x = cam_pos.x * scale.x;
-		cam_pos.y = cam_pos.y * scale.y;
+		glm::vec3 cam_pos = -player.position;
+		cam_pos.x = cam_pos.x * player.scale.x;
+		cam_pos.y = cam_pos.y * player.scale.y;
 		view = glm::translate(view, -cam_pos);
 
-		if(Colliding(player_position, asteroid.position, collision_vertices)){
-			player_velocity = glm::vec3(0.0f);
+		if(Colliding(player.position, asteroid.position, collision_vertices)){
+			player.On_Collision(asteroid, false);
+			asteroid.On_Collision(player, false);
 		}
 
-		glUseProgram(shader_program);
+		asteroid.Update(delta_time);
+		player.Update(delta_time, window);
 
-		glUniformMatrix4fv(glGetUniformLocation(shader_program, "model"), 1, GL_FALSE, glm::value_ptr(player_model));
-		glUniformMatrix4fv(glGetUniformLocation(shader_program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-		glUniformMatrix4fv(glGetUniformLocation(shader_program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, ship_texture);
-	
-		glBindVertexArray(VAO);
-		//no need to specify what EBO or VBO to use, VAO has it stored!
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
+		player.Draw(view, projection, shader_program, VAO);
 		asteroid.Draw(view, projection, shader_program, VAO);
 
 		glfwSwapBuffers(window);
@@ -295,48 +277,6 @@ bool Colliding(glm::vec3 first_position, glm::vec3 second_position, float vertic
 	}
 
 	return thing;
-}
-
-glm::vec3 move_vector(GLFWwindow *window){
-	glm::vec3 move_vector(0.0f);
-
-	if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS){
-		move_vector.y += 1.0f;
-	}
-
-	if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS){
-		move_vector.y -= 1.0f;
-	}
-
-	if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS){
-		move_vector.x += 1.0f;
-	}
-
-	if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS){
-		move_vector.x -= 1.0f;
-	}
-
-	return move_vector;
-}
-
-glm::quat player_look_rotation(GLFWwindow* window){
-	glm::quat result;
-	double xpos, ypos;
-	glfwGetCursorPos(window, &xpos, &ypos);
-
-	glm::vec3 mouse_direction = glm::vec3(static_cast<float>(xpos), static_cast<float>(ypos), 0.0f) - glm::vec3(400.0f, 400.0f, 0.0f);
-	
-	mouse_direction = glm::normalize(mouse_direction);
-	float rotation = 0.0f;
-	float dot_up = glm::dot(glm::vec3(0.0f, 1.0f, 0.0f), mouse_direction);
-	float dot_right = glm::dot(glm::vec3(1.0f, 0.0f, 0.0f), mouse_direction);
-	
-	if(dot_right < 0.0f)
-		rotation = glm::asin(dot_up) + std::numbers::pi/2.0f;
-	else
-		rotation = -glm::asin(dot_up) - std::numbers::pi/2.0f;
-
-	return glm::quat(glm::vec3(0.0f, 0.0f, rotation));
 }
 
 char* load_txt_file(const char* file_path){

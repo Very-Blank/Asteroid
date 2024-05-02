@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <glad.h>
+#include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -30,6 +31,7 @@ namespace engine {
 		void On_despawn();
 		void Start();
 		void Update(float delta_time);
+
 		void Draw(glm::mat4 &view, glm::mat4 &projection, unsigned int &shader_program, unsigned int &VAO);
 		void Calculate_model_matrix();
 		void Load_texture(char * texture_path);
