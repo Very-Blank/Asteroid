@@ -1,14 +1,14 @@
+#include "asteroid.hpp"
 #include <cmath>
-#include <fstream>
 #include <iostream>
 
 #include <glad.h>
 #include <GLFW/glfw3.h>
 
-#include <stb_image.h>
-
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <string>
+#include <vector>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -16,23 +16,16 @@
 #include <glm/common.hpp>
 
 //our header files
-#include <entity.hpp>
+#include "entity_handler.hpp"
+#include "entity.hpp"
+#include "helper.hpp"
 #include "rigidbody.hpp"
 #include "player.hpp"
 
-bool Colliding(glm::vec3 first_position, glm::vec3 second_position, float vertices[]);
-glm::vec3 move_vector(GLFWwindow *window);
-glm::quat player_look_rotation(GLFWwindow* window);
-char* load_txt_file(const char* file_path);
-void process_input(GLFWwindow *window);
-void framebuffer_size_callback(GLFWwindow *window, int width, int height);
-
-const int WINDOW_HEIGHT = 800;
-const int WINDOW_WIDTH = 800;
-const char* GAME_NAME = "Asteroid";
-
-int main(int argc, char const *argv[])
-{
+int main(int argc, char const *argv[]){
+	const int WINDOW_HEIGHT = 800;
+	const int WINDOW_WIDTH = 800;
+	const char* GAME_NAME = "Asteroid";
 	enum Mode {normal, debug, lit_face_debug, line_debug};
 	Mode mode = Mode::normal;
 
@@ -77,12 +70,12 @@ int main(int argc, char const *argv[])
 	
 	glViewport(0, 0, 800, 800);
 	glEnable(GL_DEPTH_TEST);
-	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetFramebufferSizeCallback(window, engine::framebuffer_size_callback);
 
 	//cube shaders
 	unsigned int vertex_shader;
 	vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-	char* source = load_txt_file("../../shaders/vertex.glsl");
+	char* source = engine::load_txt_file("../../shaders/vertex.glsl");
 	if (source == nullptr) {
 		glfwTerminate();
 		return -1;
@@ -106,7 +99,7 @@ int main(int argc, char const *argv[])
 
 	unsigned int fragment_shader;
 	fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-	source = load_txt_file("../../shaders/fragment.glsl");
+	source = engine::load_txt_file("../../shaders/fragment.glsl");
 
 	if (source == nullptr) {
 		glfwTerminate();
@@ -186,68 +179,75 @@ int main(int argc, char const *argv[])
 	if(mode == Mode::line_debug)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-	unsigned int ship_texture;
-	glGenTextures(1, &ship_texture);
-	glBindTexture(GL_TEXTURE_2D, ship_texture);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-	//loading image
-	int width, height, nrChannels;
-	//rotates the image correctly for opengl
-	stbi_set_flip_vertically_on_load(true);
-	unsigned char *data = stbi_load("../../textures/ship.png", &width, &height, &nrChannels, 0);
-	if (data) {
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-		stbi_image_free(data);
-	}
-	else {
-		std::cout << "Failed to load the image" << std::endl;
-	}
 	char player_path[] = "../../textures/ship.png";
-	engine::Player player(1, player_path);
+	char asteroid_path[] = "../../textures/asteroid.png";
+
+	engine::Entity_handler entity_handler;
+
+	glm::vec2 positions[] = {
+		glm::vec2(50.0f, 0.0f),
+		glm::vec2(-100.0f, -200.0f),
+		glm::vec2(100.0f, 50.0f),
+		glm::vec2(120.0f, -80.0f),
+		glm::vec2(170.0f, 300),
+		glm::vec2(-80.0f, 150.0f),
+		glm::vec2(200.0f, -400.0f),
+		glm::vec2(-200.0f, 100.0f),
+		glm::vec2(300.0f, 300.0f),
+		glm::vec2(-300.0f, 500.0f),
+		glm::vec2(400.0f, 100.0f),
+		glm::vec2(-450.0f, 200.0f),
+	};
+
+	float collider_scale = 40.0f;
+	for (glm::vec2 &position : positions) {
+		engine::Asteroid *asteroid = new engine::Asteroid(position, 2.0f, glm::vec2(50.0f), asteroid_path, GL_TEXTURE0);
+		asteroid->mass = 1.0f;
+		asteroid->health = 20.0f;
+		asteroid->name = "asteroid";
+		asteroid->collider_scale = glm::vec2(collider_scale);
+		entity_handler.rigidbodies.push_back(asteroid);
+	}
+
+	engine::Player *player = new engine::Player(glm::vec2(-50.0f), 1.0f, glm::vec2(50.0f), player_path, GL_TEXTURE0);
+	player->mass = 1.0f;
+	player->name = "player";
+	player->collider_scale = glm::vec2(50.0f, 50.0f);
+	entity_handler.player = player;
+	entity_handler.rigidbodies.push_back(player);
 
 	glm::mat4 view(1.0f);
-	view = glm::translate(view, -player.position);
-	glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.01f, 1000.0f);
+	view = glm::translate(view, glm::vec3(player->position.x, player->position.y, player->layer));
+	// glm::mat4 projection =  glm::perspective(glm::radians(45.0f), (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT, 0.1f, 100.0f);
+	glm::mat4 projection = glm::ortho(-400.0f, 400.0f, -400.0f, 400.0f, 0.1f, 100.0f);
 
-	char asteroid_path[] = "../../textures/asteroid.png";
-	engine::Rigidbody asteroid(1, asteroid_path);
-	asteroid.mass = 1.0f;
 	glEnable(GL_BLEND);
 
 	float delta_time = 0.0f;
 	float last_frame = 0.0f;
+
+	entity_handler.Init();
+
 	while (!glfwWindowShouldClose(window)) {
-		float current_frame;
+		float current_frame = glfwGetTime();
 		delta_time = current_frame - last_frame;
 		last_frame = current_frame;
 
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+		engine::process_input(window);
+
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		process_input(window);
+		entity_handler.Updates(delta_time, window);
+		entity_handler.Update_collisions(delta_time);
 
+		glm::vec3 cam_pos = -glm::vec3(player->position.x, player->position.y, player->layer);
+		cam_pos.z = -1.0f;
 		view = glm::mat4(1.0f);
-		glm::vec3 cam_pos = -player.position;
-		cam_pos.x = cam_pos.x * player.scale.x;
-		cam_pos.y = cam_pos.y * player.scale.y;
-		view = glm::translate(view, -cam_pos);
+		view = glm::translate(view, cam_pos);
 
-		if(Colliding(player.position, asteroid.position, collision_vertices)){
-			player.On_Collision(asteroid, false);
-			asteroid.On_Collision(player, false);
-		}
-
-		asteroid.Update(delta_time);
-		player.Update(delta_time, window);
-
-		player.Draw(view, projection, shader_program, VAO);
-		asteroid.Draw(view, projection, shader_program, VAO);
+		entity_handler.Draws(view, projection, shader_program, VAO);
+		entity_handler.Delete_entitys();
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -256,84 +256,8 @@ int main(int argc, char const *argv[])
 	glDeleteVertexArrays(1, &VAO);
 	glDeleteBuffers(1, &VBO);
 	glDeleteProgram(shader_program);
-	glDeleteTextures(1, &ship_texture);
 
 	glfwTerminate();
 
 	return 0;
 }
-
-bool Colliding(glm::vec3 first_position, glm::vec3 second_position, float vertices[]){
-	bool thing = false;
-	glm::vec3 first_corner_1 = glm::vec3(vertices[0], vertices[1], vertices[2]) - first_position;
-	glm::vec3 first_corner_3 = glm::vec3(vertices[6], vertices[7], vertices[8]) - first_position;
-	glm::vec3 first_corner_4 = glm::vec3(vertices[9], vertices[10], vertices[11]) - first_position;
-
-	for(int i = 0; i < 12; i += 3){
-		glm::vec3 position = glm::vec3(vertices[i], vertices[i+1], vertices[i+2]) - second_position;
-		if(first_corner_4.y < position.y && position.y < first_corner_1.y && first_corner_4.x < position.x && position.x < first_corner_3.x){
-			thing = true;
-		}
-	}
-
-	return thing;
-}
-
-char* load_txt_file(const char* file_path){
-	std::ifstream file(file_path, std::ifstream::binary);
-	if(!file){
-		std::cout << "Problem with opening the file" << std::endl;
-		std::cout << "File: " << file_path << std::endl;
-		return nullptr;
-	}
-
-	file.seekg(0, file.end);
-	size_t size = file.tellg();
-	
-	try{
-		file.unget();
-		char* contents;
-		if(file.peek() == '\0'){
-			file.seekg(0, file.beg);
-			contents = new char[size];
-			file.read(contents, size);
-		}
-		else {
-			file.seekg(0, file.beg);
-			contents = new char[size + 1];
-			file.read(contents, size);
-			contents[size] = '\0';
-		}
-			
-		if (file) {
-			std::cout << "File: " << file_path << " read successfully" << std::endl;
-		}
-		else {
-			std::cout << "Reading the whole file failed only: " << file.gcount() << " where read" << std::endl;
-			std::cout << "File: " << file_path << std::endl;
-		}
-
-		file.close();
-
-		return contents;
-
-	} catch (const std::bad_alloc& e){
-		std::cerr << "Failed to allocate memory: " << e.what() << std::endl;
-	}
-
-	file.close();
-
-	return nullptr;
-}
-
-void process_input(GLFWwindow *window){
-	if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS){
-		glfwSetWindowShouldClose(window, true);
-	}
-}
-
-void framebuffer_size_callback(GLFWwindow *window, int width, int height){
-	glViewport(0, 0, width, height);
-}
-
-

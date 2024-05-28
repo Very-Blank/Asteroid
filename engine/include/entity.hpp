@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ENTITY_HPP
+#define ENTITY_HPP
 
 #include <iostream>
 #include <glad.h>
@@ -14,27 +15,41 @@
 
 #include <stb_image.h>
 
+
 namespace engine {
+	class Entity_handler;
+
+	enum CLASS_TYPE{
+		ENTITY,
+		RIGIDBODY,
+	};
+
 	class Entity{
 		public:
-		glm::vec3 position, scale;
-		glm::quat rotation;
+		CLASS_TYPE type;
+		std::string name;
+
+		glm::vec2 position, scale;
+		float health, layer, rotation;
 		glm::mat4 model;
 
 		unsigned int texture;
+		char* path;
+		int texture_id;
 
-		Entity(int layer, char* texture_path);
-		Entity(glm::vec2 _position, int layer, glm::vec2 _scale, char* texture_path);
-		Entity(glm::vec2 _position, int layer, glm::vec2 _scale, glm::quat rotation, char* texture_path);
+		Entity_handler *entity_handler;
+
+		Entity(float _layer, char* texture_path, int _texture_id);
+		Entity(glm::vec2 _position, float _layer, glm::vec2 _scale, char* texture_path, int _texture_id);
+		Entity(glm::vec2 _position, float _layer, glm::vec2 _scale, float rotation, char* texture_path, int _texture_id);
 		
 		void Delete_entity();
-		void On_despawn();
-		void Start();
-		void Update(float delta_time);
+		virtual void Start();
+		virtual void Update(float delta_time, GLFWwindow *window);
 
 		void Draw(glm::mat4 &view, glm::mat4 &projection, unsigned int &shader_program, unsigned int &VAO);
 		void Calculate_model_matrix();
-		void Load_texture(char * texture_path);
-		float Layer_to_z(int &layer);
 	};
 }
+
+#endif
