@@ -33,7 +33,6 @@
 
 # Folders
 out/
-external/
 
 # Cache files
 .cache
