@@ -1,4 +1,5 @@
 #pragma once
+
 #include "rigidbody.hpp"
 #include <fstream>
 #include <iostream>
@@ -11,6 +12,12 @@
 #include <glm/common.hpp>
 
 namespace engine {
+	struct Window_settings{
+		const char *name = "Asteroid";
+		int height, width;
+		glm::mat4 projection;
+	};
+
 	void process_input(GLFWwindow *window);
 	bool Is_inside_bounding_box(glm::vec2 collider, glm::vec2 point);
 	char* load_txt_file(const char* file_path);

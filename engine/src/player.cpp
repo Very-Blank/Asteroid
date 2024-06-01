@@ -85,10 +85,12 @@ namespace engine {
 	}
 
 	float Player::Look_rotation(GLFWwindow* window){
+		Window_settings* window_settings = static_cast<Window_settings*>(glfwGetWindowUserPointer(window));
+
 		double xpos, ypos;
 		glfwGetCursorPos(window, &xpos, &ypos);
 
-		glm::vec2 mouse_direction = glm::vec2(static_cast<float>(xpos), static_cast<float>(ypos)) - glm::vec2(400.0f, 400.0f);
+		glm::vec2 mouse_direction = glm::vec2(static_cast<float>(xpos), static_cast<float>(ypos)) - glm::vec2(window_settings->width/2.0f, window_settings->height/2.0f);
 		
 		mouse_direction = glm::normalize(mouse_direction);
 		float rotation = 0.0f;

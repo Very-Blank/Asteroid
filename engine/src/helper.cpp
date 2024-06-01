@@ -9,6 +9,12 @@ namespace engine {
 
 	void framebuffer_size_callback(GLFWwindow *window, int width, int height){
 		glViewport(0, 0, width, height);
+		Window_settings* window_settings = static_cast<Window_settings*>(glfwGetWindowUserPointer(window));
+		if (window_settings) {
+			window_settings->width = width;
+			window_settings->height = height;
+			window_settings->projection = glm::ortho(-window_settings->width/2.0f, window_settings->width/2.0f, -window_settings->height/2.0f, window_settings->height/2.0f, 0.1f, 100.0f);
+		}
 	}
 
 	glm::vec2 rotate_vector(glm::vec2 vector, const float &rotation){

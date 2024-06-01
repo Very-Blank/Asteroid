@@ -1,4 +1,3 @@
-#include "asteroid.hpp"
 #include <cmath>
 #include <iostream>
 
@@ -16,16 +15,18 @@
 #include <glm/common.hpp>
 
 //our header files
+#include "asteroid.hpp"
 #include "entity_handler.hpp"
 #include "entity.hpp"
 #include "helper.hpp"
-#include "rigidbody.hpp"
 #include "player.hpp"
 
+
 int main(int argc, char const *argv[]){
-	const int WINDOW_HEIGHT = 800;
-	const int WINDOW_WIDTH = 800;
-	const char* GAME_NAME = "Asteroid";
+	engine::Window_settings window_settings;
+	window_settings.width = 800;
+	window_settings.height = 800;
+
 	enum Mode {normal, debug, lit_face_debug, line_debug};
 	Mode mode = Mode::normal;
 
@@ -48,7 +49,9 @@ int main(int argc, char const *argv[]){
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	
-	GLFWwindow *window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_WIDTH, GAME_NAME, NULL, NULL);
+	GLFWwindow *window = glfwCreateWindow(window_settings.height, window_settings.width, window_settings.name, NULL, NULL);
+	glfwSetWindowUserPointer(window, &window_settings);
+
 	if (window == NULL) {
 		std::cout << "Failed to create GLFW window" << std::endl;
 		glfwTerminate();
@@ -219,7 +222,7 @@ int main(int argc, char const *argv[]){
 	glm::mat4 view(1.0f);
 	view = glm::translate(view, glm::vec3(player->position.x, player->position.y, player->layer));
 	// glm::mat4 projection =  glm::perspective(glm::radians(45.0f), (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT, 0.1f, 100.0f);
-	glm::mat4 projection = glm::ortho(-400.0f, 400.0f, -400.0f, 400.0f, 0.1f, 100.0f);
+	window_settings.projection = glm::ortho(-window_settings.width/2.0f, window_settings.width/2.0f, -window_settings.height/2.0f, window_settings.height/2.0f, 0.1f, 100.0f);
 
 	glEnable(GL_BLEND);
 
@@ -246,7 +249,7 @@ int main(int argc, char const *argv[]){
 		view = glm::mat4(1.0f);
 		view = glm::translate(view, cam_pos);
 
-		entity_handler.Draws(view, projection, shader_program, VAO);
+		entity_handler.Draws(view, window_settings.projection, shader_program, VAO);
 		entity_handler.Delete_entitys();
 
 		glfwSwapBuffers(window);
